@@ -234,9 +234,9 @@ func placeWord(grid Grid, word string, x, y, dx, dy int, isSearchWord bool) {
 		newY := y + i*dy
 		grid[newX][newY] = r
 	}
-	if isSearchWord {
-		fmt.Printf("Word=%s, Direction x=%d, y=%d, dx=%d, dy=%d\n", word, x, y, dx, dy)
-	}
+	//if isSearchWord {
+	//	fmt.Printf("Word=%s, Direction x=%d, y=%d, dx=%d, dy=%d\n", word, x, y, dx, dy)
+	//}
 }
 
 func fillEmptyCells(grid Grid) error {
