@@ -11,10 +11,14 @@ import (
 	"time"
 
 	"github.com/jung-kurt/gofpdf"
+	"github.com/sirupsen/logrus"
 )
+
+var logger *logrus.Logger
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
+	logger = logrus.New()
 }
 
 type placedSearchWord struct {
@@ -33,7 +37,13 @@ type Puzzle struct {
 type Grid [][]rune
 
 func GeneratePuzzle(gridSize int, words []string, columns int, difficulty int, dictionaryPath string, verbose bool) (Puzzle, error) {
-	rand.Seed(time.Now().UnixNano())
+	// Set the default log level
+	if verbose {
+		logger.SetLevel(logrus.DebugLevel)
+	} else {
+		logger.SetLevel(logrus.InfoLevel)
+	}
+	logger.Logf(logrus.InfoLevel, "Generating puzzle...")
 
 	puzzle := createPuzzle(gridSize)
 
@@ -52,7 +62,7 @@ func GeneratePuzzle(gridSize int, words []string, columns int, difficulty int, d
 			return puzzle, fmt.Errorf("invalid word '%s'", word)
 		}
 		if len(word) > gridSize {
-			return puzzle, fmt.Errorf("invalid word '%s' (too long)", word)
+			return puzzle, fmt.Errorf("invalid word '%s' (%d is too long)", word, len(word))
 		}
 	}
 
@@ -67,7 +77,8 @@ func GeneratePuzzle(gridSize int, words []string, columns int, difficulty int, d
 	}
 
 	for _, placedWord := range puzzle.placedWords {
-		fmt.Printf("Word: %s, X: %d, Y: %d, dX: %d, dY: %d\n", placedWord.word, placedWord.x, placedWord.y, placedWord.dx, placedWord.dy)
+		logger.Logf(logrus.DebugLevel, "Word: %s, X: %d, Y: %d, dX: %d, dY: %d\n",
+			placedWord.word, placedWord.x, placedWord.y, placedWord.dx, placedWord.dy)
 	}
 
 	return puzzle, nil
@@ -132,28 +143,28 @@ func insertWordsIntoGrid(puzzle *Puzzle, words []string, difficulty int, diction
 
 	randomWords := dictionary.RandomWords(numberOfRandomWords(difficulty))
 
-	logDebug(verbose, "Inserting search words.\n")
+	logger.Logf(logrus.DebugLevel, "Inserting search words.\n")
 	for _, word := range words {
-		logDebug(verbose, "Attempting to insert word: %s\n", word)
+		logger.Logf(logrus.DebugLevel, "Attempting to insert word: %s\n", word)
 		if !tryInsertWord(puzzle, word, true, verbose) {
 			return errors.New("Failed to insert word into the grid: " + word)
 		}
-		logDebug(verbose, "Successfully inserted word: %s\n", word)
+		logger.Logf(logrus.DebugLevel, "Successfully inserted word: %s\n", word)
 	}
 
-	logDebug(verbose, "Inserting random words.\n")
+	logger.Logf(logrus.DebugLevel, "Inserting random words.\n")
 	for _, word := range randomWords {
-		logDebug(verbose, "Attempting to insert random word: %s\n", word)
+		logger.Logf(logrus.DebugLevel, "Attempting to insert random word: %s\n", word)
 		if !tryInsertWord(puzzle, word, false, verbose) {
-			logDebug(verbose, "Failed to insert random word: %s\n", word)
+			logger.Logf(logrus.DebugLevel, "Failed to insert random word: %s\n", word)
 		}
 	}
 
-	logDebug(verbose, "Inserting close words.\n")
+	logger.Logf(logrus.DebugLevel, "Inserting close words.\n")
 	adjustedWords := adjustWordsForDifficulty(words, difficulty, dictionary)
 	for _, word := range adjustedWords {
 		for _, closeMatch := range dictionary.CloseMatches(word) {
-			logDebug(verbose, "Attempging to insert close word: %s\n", word)
+			logger.Logf(logrus.DebugLevel, "Attempging to insert close word: %s\n", word)
 			tryInsertWord(puzzle, closeMatch, false, verbose)
 		}
 	}
@@ -164,8 +175,6 @@ func insertWordsIntoGrid(puzzle *Puzzle, words []string, difficulty int, diction
 func tryInsertWord(puzzle *Puzzle, word string, isSearchWord bool, verbose bool) bool {
 	gridSize := len(puzzle.grid)
 
-	// Set a seed for the random number generator
-	rand.Seed(time.Now().UnixNano())
 	// Shuffle the indices randomly
 	indicesX := rand.Perm(gridSize)
 	indicesY := rand.Perm(gridSize)
@@ -219,16 +228,16 @@ func canPlaceWord(grid Grid, word string, x, y, dx, dy int, verbose bool) bool {
 		newY := y + i*dy
 
 		if !inBounds(grid, newX, newY) {
-			logDebug(verbose, "(%d, %d) is out of bounds for grid\n", newX, newY)
+			logger.Logf(logrus.DebugLevel, "(%d, %d) is out of bounds for grid\n", newX, newY)
 			return false
 		}
 
 		if !isEmptyCell(grid, newX, newY) && grid[newX][newY] != r {
-			logDebug(verbose, "(%d, %d) is not an empty cell\n", newX, newY)
+			logger.Logf(logrus.DebugLevel, "(%d, %d) is not an empty cell\n", newX, newY)
 			return false
 		}
 	}
-	logDebug(verbose, "(%d, %d) can be used to place %s\n", x, y, word)
+	logger.Logf(logrus.DebugLevel, "(%d, %d) can be used to place %s\n", x, y, word)
 	return true
 }
 
@@ -270,18 +279,10 @@ func PrintPuzzle(puzzle Puzzle) {
 		}
 		fmt.Println()
 	}
-	/*
-		for _, row := range puzzle.grid {
-			for _, cell := range row {
-				fmt.Printf("%c ", cell)
-			}
-			fmt.Println()
-		}
-	*/
 }
 
 // SavePuzzleToFile saves the puzzle grid to a file with the specified filename.
-func SavePuzzleToFile(puzzle Puzzle, filename string) error {
+func SavePuzzleToFile(puzzle Puzzle, filename string, includeSolution bool) error {
 	file, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -289,13 +290,9 @@ func SavePuzzleToFile(puzzle Puzzle, filename string) error {
 	defer file.Close()
 
 	writer := bufio.NewWriter(file)
-	for _, row := range puzzle.grid {
-		for _, cell := range row {
-			_, err := writer.WriteRune(cell)
-			if err != nil {
-				return err
-			}
-			_, err = writer.WriteString(" ")
+	for y := 0; y < len(puzzle.grid); y++ {
+		for x := 0; x < len(puzzle.grid); x++ {
+			_, err = writer.WriteRune(puzzle.grid[x][y])
 			if err != nil {
 				return err
 			}
@@ -305,36 +302,29 @@ func SavePuzzleToFile(puzzle Puzzle, filename string) error {
 			return err
 		}
 	}
-	_, err = writer.WriteString("\n")
-	if err != nil {
-		return err
-	}
-	for _, row := range puzzle.solution {
-		for _, cell := range row {
-			_, err := writer.WriteRune(cell)
-			if err != nil {
-				return err
-			}
-			_, err = writer.WriteString(" ")
-			if err != nil {
-				return err
-			}
-		}
+	// Write solution
+	if includeSolution {
 		_, err = writer.WriteString("\n")
 		if err != nil {
 			return err
+		}
+		for y := 0; y < len(puzzle.grid); y++ {
+			for x := 0; x < len(puzzle.grid); x++ {
+				_, err = writer.WriteRune(puzzle.solution[x][y])
+				if err != nil {
+					return err
+				}
+			}
+			_, err = writer.WriteString("\n")
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return writer.Flush()
 }
 
-func logDebug(verbose bool, format string, args ...interface{}) {
-	if verbose {
-		fmt.Printf(format, args...)
-	}
-}
-
-func GeneratePDF(puzzle Puzzle, title string, words []string, columns int, outputFile string) error {
+func GeneratePDF(puzzle Puzzle, title string, words []string, columns int, outputFile string) (Puzzle, error) {
 	// Create a new PDF instance
 	pdf := gofpdf.New("P", "mm", "A4", "")
 
@@ -376,10 +366,10 @@ func GeneratePDF(puzzle Puzzle, title string, words []string, columns int, outpu
 	// Save the PDF to a file
 	err := pdf.OutputFileAndClose(outputFile)
 	if err != nil {
-		return err
+		return puzzle, err
 	}
 
-	return nil
+	return puzzle, nil
 }
 
 func drawTitle(pdf *gofpdf.Fpdf, title string, marginY float64) {
