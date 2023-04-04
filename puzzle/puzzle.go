@@ -13,18 +13,21 @@ import (
 	"github.com/jung-kurt/gofpdf"
 )
 
-const marginX = 10.0
-const marginY = 10.0
-const spacing = 5.0
-const lineHeight = 16.0
-
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
+type placedSearchWord struct {
+	word string
+	x    int
+	y    int
+	dx   int
+	dy   int
+}
 type Puzzle struct {
-	grid     [][]rune
-	solution [][]rune
+	grid        [][]rune
+	solution    [][]rune
+	placedWords []placedSearchWord
 }
 
 type Grid [][]rune
@@ -53,7 +56,7 @@ func GeneratePuzzle(gridSize int, words []string, columns int, difficulty int, d
 		}
 	}
 
-	err = insertWordsIntoGrid(puzzle, validWords, difficulty, dictionaryPath, verbose)
+	err = insertWordsIntoGrid(&puzzle, validWords, difficulty, dictionaryPath, verbose)
 	if err != nil {
 		return puzzle, err
 	}
@@ -61,6 +64,10 @@ func GeneratePuzzle(gridSize int, words []string, columns int, difficulty int, d
 	err = fillEmptyCells(puzzle.grid)
 	if err != nil {
 		return puzzle, err
+	}
+
+	for _, placedWord := range puzzle.placedWords {
+		fmt.Printf("Word: %s, X: %d, Y: %d, dX: %d, dY: %d\n", placedWord.word, placedWord.x, placedWord.y, placedWord.dx, placedWord.dy)
 	}
 
 	return puzzle, nil
@@ -117,7 +124,7 @@ func processWords(words []string, gridSize int) ([]string, error) {
 	return validWords, nil
 }
 
-func insertWordsIntoGrid(puzzle Puzzle, words []string, difficulty int, dictionaryPath string, verbose bool) error {
+func insertWordsIntoGrid(puzzle *Puzzle, words []string, difficulty int, dictionaryPath string, verbose bool) error {
 	dictionary, err := LoadDictionary(dictionaryPath)
 	if err != nil {
 		return err
@@ -154,7 +161,7 @@ func insertWordsIntoGrid(puzzle Puzzle, words []string, difficulty int, dictiona
 	return nil
 }
 
-func tryInsertWord(puzzle Puzzle, word string, isSearchWord bool, verbose bool) bool {
+func tryInsertWord(puzzle *Puzzle, word string, isSearchWord bool, verbose bool) bool {
 	gridSize := len(puzzle.grid)
 
 	// Set a seed for the random number generator
@@ -186,10 +193,7 @@ func tryInsertWord(puzzle Puzzle, word string, isSearchWord bool, verbose bool) 
 	}
 
 	if maxOverlap >= 0 {
-		placeWord(puzzle.grid, word, bestX, bestY, bestDx, bestDy, isSearchWord)
-		if isSearchWord {
-			placeWord(puzzle.solution, word, bestX, bestY, bestDx, bestDy, isSearchWord)
-		}
+		placeWord(puzzle, word, bestX, bestY, bestDx, bestDy, isSearchWord)
 		return true
 	}
 
@@ -228,15 +232,20 @@ func canPlaceWord(grid Grid, word string, x, y, dx, dy int, verbose bool) bool {
 	return true
 }
 
-func placeWord(grid Grid, word string, x, y, dx, dy int, isSearchWord bool) {
+func placeWord(puzzle *Puzzle, word string, x, y, dx, dy int, isSearchWord bool) {
 	for i, r := range word {
 		newX := x + i*dx
 		newY := y + i*dy
-		grid[newX][newY] = r
+		puzzle.grid[newX][newY] = r
 	}
-	//if isSearchWord {
-	//	fmt.Printf("Word=%s, Direction x=%d, y=%d, dx=%d, dy=%d\n", word, x, y, dx, dy)
-	//}
+	if isSearchWord {
+		for i, r := range word {
+			newX := x + i*dx
+			newY := y + i*dy
+			puzzle.solution[newX][newY] = r
+		}
+		puzzle.placedWords = append(puzzle.placedWords, placedSearchWord{word: word, x: x, y: y, dx: dx, dy: dy})
+	}
 }
 
 func fillEmptyCells(grid Grid) error {
@@ -255,12 +264,20 @@ func randomLetter() rune {
 }
 
 func PrintPuzzle(puzzle Puzzle) {
-	for _, row := range puzzle.grid {
-		for _, cell := range row {
-			fmt.Printf("%c ", cell)
+	for y := 0; y < len(puzzle.grid); y++ {
+		for x := 0; x < len(puzzle.grid); x++ {
+			fmt.Printf("%c ", puzzle.grid[x][y])
 		}
 		fmt.Println()
 	}
+	/*
+		for _, row := range puzzle.grid {
+			for _, cell := range row {
+				fmt.Printf("%c ", cell)
+			}
+			fmt.Println()
+		}
+	*/
 }
 
 // SavePuzzleToFile saves the puzzle grid to a file with the specified filename.
@@ -289,6 +306,9 @@ func SavePuzzleToFile(puzzle Puzzle, filename string) error {
 		}
 	}
 	_, err = writer.WriteString("\n")
+	if err != nil {
+		return err
+	}
 	for _, row := range puzzle.solution {
 		for _, cell := range row {
 			_, err := writer.WriteRune(cell)
@@ -385,27 +405,27 @@ func drawPuzzleGrid(pdf *gofpdf.Fpdf, puzzle Puzzle, isSolution bool) {
 
 	pdf.SetFont("Courier", "B", fontSize)
 
-	/*
-		for row := 0; row < len(puzzle.grid); row++ {
-			for col := 0; col < len(puzzle.grid); col++ {
-				if isSolution {
-					pdf.CellFormat(cellSize, cellSize, string(puzzle.solution[row][col]), "0", 0, "C", false, 0, "")
-				} else {
-					pdf.CellFormat(cellSize, cellSize, string(puzzle.grid[row][col]), "0", 0, "C", false, 0, "")
-				}
-			}
-		}
-	*/
 	var gr [][]rune
 	if isSolution {
 		gr = puzzle.solution
+		if isSolution {
+			pageX, pageY := pdf.GetXY()
+			pdf.SetLineWidth(1)             // Set the line width
+			pdf.SetDrawColor(192, 192, 192) // Set the line color (black)
+			for _, word := range puzzle.placedWords {
+				startX := float64(word.x)*cellSize + (cellSize / 2)
+				startY := float64(word.y)*cellSize + (cellSize / 2)
+				endX := startX + float64(word.dx*(len(word.word)-1))*cellSize
+				endY := startY + float64(word.dy*(len(word.word)-1))*cellSize
+				pdf.Line(pageX+startX, pageY+startY, pageX+endX, pageY+endY)
+			}
+		}
 	} else {
 		gr = puzzle.grid
 	}
-	for _, row := range gr {
-		for _, cell := range row {
-			//pdf.CellFormat(cellSize, cellSize, string(cell), "1", 0, "C", false, 0, "")
-			pdf.CellFormat(cellSize, cellSize, string(cell), "0", 0, "C", false, 0, "")
+	for y := 0; y < len(gr); y++ {
+		for x := 0; x < len(puzzle.grid); x++ {
+			pdf.CellFormat(cellSize, cellSize, string(gr[x][y]), "0", 0, "C", false, 0, "")
 		}
 		pdf.Ln(-1)
 	}
