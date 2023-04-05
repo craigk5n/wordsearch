@@ -61,3 +61,41 @@ output_basename: "sample_output"
 		t.Errorf("Expected output_basename to be %q, got %q", "sample_output", config.OutputBasename)
 	}
 }
+
+func TestParseConfigEmptyOutput(t *testing.T) {
+	// Create a temporary YAML config file for testing purposes
+	configContent := []byte(`
+title: "Sample Puzzle"
+difficulty: 3
+words:
+  - "apple"
+  - "banana"
+  - "orange"
+`)
+	tmpFile, err := os.CreateTemp("", "test_config_*.yaml")
+	if err != nil {
+		t.Fatalf("Failed to create temporary test config file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name()) // Clean up the temporary file after test
+
+	if _, err := tmpFile.Write(configContent); err != nil {
+		t.Fatalf("Failed to write temporary test config file: %v", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		t.Fatalf("Failed to close temporary test config file: %v", err)
+	}
+
+	config, err := ParseConfig(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("ParseConfig returned error: %v", err)
+	}
+
+	expected := basenameWithoutExt(config.OutputBasename)
+	if len(config.OutputBasename) == 0 || config.OutputBasename != expected {
+		t.Errorf("Expected title to be %q, got empty string", expected)
+	}
+
+	if config.Size != 0 {
+		t.Errorf("Expected size to be %d, got %d", 0, config.Size)
+	}
+}

@@ -26,7 +26,7 @@ func SavePuzzleToFile(puzzle Puzzle, filename string, includeSolution bool) erro
 	writer := bufio.NewWriter(file)
 	for y := 0; y < len(puzzle.grid); y++ {
 		for x := 0; x < len(puzzle.grid); x++ {
-			_, err = writer.WriteRune(puzzle.grid[x][y])
+			_, err = writer.WriteString(fmt.Sprintf("%c ", puzzle.grid[x][y]))
 			if err != nil {
 				return err
 			}
@@ -44,7 +44,7 @@ func SavePuzzleToFile(puzzle Puzzle, filename string, includeSolution bool) erro
 		}
 		for y := 0; y < len(puzzle.grid); y++ {
 			for x := 0; x < len(puzzle.grid); x++ {
-				_, err = writer.WriteRune(puzzle.solution[x][y])
+				_, err = writer.WriteString(fmt.Sprintf("%c ", puzzle.solution[x][y]))
 				if err != nil {
 					return err
 				}

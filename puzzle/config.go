@@ -2,6 +2,7 @@ package puzzle
 
 import (
 	"io/ioutil"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
@@ -15,6 +16,13 @@ type PuzzleConfig struct {
 	OutputBasename string   `yaml:"output_basename"`
 }
 
+func basenameWithoutExt(filePath string) string {
+	base := filepath.Base(filePath)
+	ext := filepath.Ext(filePath)
+
+	return base[:len(base)-len(ext)]
+}
+
 func ParseConfig(filename string) (*PuzzleConfig, error) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -25,6 +33,10 @@ func ParseConfig(filename string) (*PuzzleConfig, error) {
 	err = yaml.Unmarshal(data, &config)
 	if err != nil {
 		return nil, err
+	}
+	// If no output_basename provided, use the basename of the input YAML file.
+	if len(config.OutputBasename) == 0 {
+		config.OutputBasename = basenameWithoutExt(filename)
 	}
 
 	return &config, nil
