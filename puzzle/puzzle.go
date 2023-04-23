@@ -141,7 +141,7 @@ func insertWordsIntoGrid(puzzle *Puzzle, words []string, difficulty int, diction
 		return err
 	}
 
-	randomWords := dictionary.RandomWords(numberOfRandomWords(difficulty))
+	randomWords := dictionary.RandomWords(10 * numberOfRandomWords(difficulty))
 
 	logger.Logf(logrus.DebugLevel, "Inserting search words.\n")
 	for _, word := range words {
@@ -153,18 +153,23 @@ func insertWordsIntoGrid(puzzle *Puzzle, words []string, difficulty int, diction
 	}
 
 	logger.Logf(logrus.DebugLevel, "Inserting random words.\n")
+	numRandom := 0
 	for _, word := range randomWords {
 		logger.Logf(logrus.DebugLevel, "Attempting to insert random word: %s\n", word)
 		if !tryInsertWord(puzzle, word, false, verbose) {
 			logger.Logf(logrus.DebugLevel, "Failed to insert random word: %s\n", word)
+		} else {
+			logger.Logf(logrus.DebugLevel, "Inserted random word: %s\n", word)
+			numRandom = numRandom + 1
 		}
 	}
+	logger.Logf(logrus.InfoLevel, "Successfully inserted %d random words\n", numRandom)
 
 	logger.Logf(logrus.DebugLevel, "Inserting close words.\n")
 	adjustedWords := adjustWordsForDifficulty(words, difficulty, dictionary)
 	for _, word := range adjustedWords {
 		for _, closeMatch := range dictionary.CloseMatches(word) {
-			logger.Logf(logrus.DebugLevel, "Attempging to insert close word: %s\n", word)
+			logger.Logf(logrus.DebugLevel, "Attempting to insert close word: %s\n", word)
 			tryInsertWord(puzzle, closeMatch, false, verbose)
 		}
 	}
