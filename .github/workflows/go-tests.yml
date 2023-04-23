@@ -26,5 +26,5 @@ jobs:
       run: go mod download
 
     - name: Run tests
-      run: go test -v ./...
+      run: go test -v -tags no_dict ./...
 
