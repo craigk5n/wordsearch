@@ -6,6 +6,8 @@ import (
 	"os"
 )
 
+// PrintPuzzle prints the grid of the puzzle one row at a time. It takes in a parameter
+// puzzle of type Puzzle.
 func PrintPuzzle(puzzle Puzzle) {
 	for y := 0; y < len(puzzle.grid); y++ {
 		for x := 0; x < len(puzzle.grid); x++ {

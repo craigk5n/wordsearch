@@ -78,17 +78,15 @@ func drawPuzzleGrid(pdf *gofpdf.Fpdf, puzzle Puzzle, isSolution bool) {
 	var gr [][]rune
 	if isSolution {
 		gr = puzzle.solution
-		if isSolution {
-			pageX, pageY := pdf.GetXY()
-			pdf.SetLineWidth(1)             // Set the line width
-			pdf.SetDrawColor(192, 192, 192) // Set the line color (black)
-			for _, word := range puzzle.placedWords {
-				startX := float64(word.x)*cellSize + (cellSize / 2)
-				startY := float64(word.y)*cellSize + (cellSize / 2)
-				endX := startX + float64(word.dx*(len(word.word)-1))*cellSize
-				endY := startY + float64(word.dy*(len(word.word)-1))*cellSize
-				pdf.Line(pageX+startX, pageY+startY, pageX+endX, pageY+endY)
-			}
+		pageX, pageY := pdf.GetXY()
+		pdf.SetLineWidth(1)             // Set the line width
+		pdf.SetDrawColor(192, 192, 192) // Set the line color (black)
+		for _, word := range puzzle.placedWords {
+			startX := float64(word.x)*cellSize + (cellSize / 2)
+			startY := float64(word.y)*cellSize + (cellSize / 2)
+			endX := startX + float64(word.dx*(len(word.word)-1))*cellSize
+			endY := startY + float64(word.dy*(len(word.word)-1))*cellSize
+			pdf.Line(pageX+startX, pageY+startY, pageX+endX, pageY+endY)
 		}
 	} else {
 		gr = puzzle.grid
@@ -101,6 +99,8 @@ func drawPuzzleGrid(pdf *gofpdf.Fpdf, puzzle Puzzle, isSolution bool) {
 	}
 }
 
+// PrintPuzzle prints the grid of the puzzle one row at a time. It takes in a parameter
+// puzzle of type Puzzle.
 func listSearchWords(pdf *gofpdf.Fpdf, words []string, columns int) {
 	fontSize := float64(11)
 	pdf.SetFont("Arial", "", fontSize)
