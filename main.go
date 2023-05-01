@@ -61,7 +61,7 @@ func main() {
 	}
 
 	// Generate PDF
-	_, err = puzzle.GeneratePDF(p, config.Title, config.Words, config.Columns, config.OutputBasename+".pdf")
+	_, err = puzzle.GeneratePDF(p, config.Title, config.Words, config.Columns, config.OutputBasename+".pdf", config.Background)
 	if err != nil {
 		fmt.Printf("Error generating PDF: %v", err)
 		os.Exit(1)

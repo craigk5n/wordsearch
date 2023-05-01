@@ -1,24 +1,41 @@
 package puzzle
 
 import (
+	"fmt"
+
 	"github.com/jung-kurt/gofpdf"
 )
 
-func GeneratePDF(puzzle Puzzle, title string, words []string, columns int, outputFile string) (Puzzle, error) {
+const leftMargin = 20
+const rightMargin = 20
+const topMargin = 20
+const bottomMargin = 20
+
+func GeneratePDF(puzzle Puzzle, title string, words []string, columns int, outputFile string,
+	backgroundFile string) (Puzzle, error) {
 	// Create a new PDF instance
 	pdf := gofpdf.New("P", "mm", "A4", "")
 
 	// Add a new page
 	pdf.AddPage()
 
+	// Draw tiled background
+	if backgroundFile != "" {
+		drawBackground(pdf, backgroundFile)
+		// Draw a rectangle in the center of the page for the puzzle and words
+		pageW, pageH := pdf.GetPageSize()
+		pdf.SetFillColor(255, 255, 255) // Set fill color to white
+		pdf.Rect(leftMargin, topMargin, pageW-(leftMargin+rightMargin), pageH-(topMargin+bottomMargin), "F")
+	}
+
 	// Set margins (in mm)
-	pdf.SetMargins(10, 5, 10)
+	pdf.SetMargins(leftMargin, topMargin, rightMargin)
 
 	// Set font, size, and styles
 	pdf.SetFont("Arial", "", 14)
 
 	// Add the title
-	drawTitle(pdf, title, 10)
+	drawTitle(pdf, title, topMargin)
 	pdf.Ln(10)
 
 	// Draw the puzzle grid
@@ -30,14 +47,23 @@ func GeneratePDF(puzzle Puzzle, title string, words []string, columns int, outpu
 	// Add solution page
 	pdf.AddPage()
 
+	// Draw tiled background
+	if backgroundFile != "" {
+		drawBackground(pdf, backgroundFile)
+		// Draw a rectangle in the center of the page for the puzzle and words
+		pageW, pageH := pdf.GetPageSize()
+		pdf.SetFillColor(255, 255, 255) // Set fill color to white
+		pdf.Rect(leftMargin, topMargin, pageW-(leftMargin+rightMargin), pageH-(topMargin+bottomMargin), "F")
+	}
+
 	// Set margins (in mm)
-	pdf.SetMargins(10, 5, 10)
+	pdf.SetMargins(leftMargin, topMargin, rightMargin)
 
 	// Set font, size, and styles
 	pdf.SetFont("Arial", "", 14)
 
 	// Add the title
-	drawTitle(pdf, title, 10)
+	drawTitle(pdf, title, topMargin)
 	pdf.Ln(10)
 
 	// Draw the puzzle grid
@@ -62,6 +88,8 @@ func drawTitle(pdf *gofpdf.Fpdf, title string, marginY float64) {
 	pdf.CellFormat(titleWidth, 10, title, "", 0, "C", false, 0, "")
 }
 
+// Draw a grid for the given puzzle, with the optimal font and cell size, and add
+// a line for each placed word in the solution grid if applicable.
 func drawPuzzleGrid(pdf *gofpdf.Fpdf, puzzle Puzzle, isSolution bool) {
 	// Calculate the optimal font size and cell size based on the grid size and available page width
 	gridSize := len(puzzle.grid)
@@ -99,6 +127,43 @@ func drawPuzzleGrid(pdf *gofpdf.Fpdf, puzzle Puzzle, isSolution bool) {
 		}
 		pdf.Ln(-1)
 	}
+}
+
+func drawBackground(pdf *gofpdf.Fpdf, imagePath string) error {
+	info := pdf.RegisterImage(imagePath, "")
+	if info == nil {
+		return fmt.Errorf("failed to load background image %s", imagePath)
+	}
+
+	imgWidth := float64(info.Width()) / 10
+	imgHeight := float64(info.Height()) / 10
+
+	pageWidth, pageHeight := pdf.GetPageSize()
+	x, y := 0.0, 0.0
+	for x < pageWidth {
+		pdf.ImageOptions(imagePath, x, y, imgWidth, imgHeight, false, gofpdf.ImageOptions{ReadDpi: true}, 0, "")
+		x += imgWidth
+	}
+	y = pageHeight - imgHeight
+	x = 0.0
+	for x < pageWidth {
+		pdf.ImageOptions(imagePath, x, y, imgWidth, imgHeight, false, gofpdf.ImageOptions{ReadDpi: true}, 0, "")
+		x += imgWidth
+	}
+
+	// Draw left and right borders
+	x, y = 0.0, imgHeight
+	for y < pageHeight-imgHeight {
+		pdf.ImageOptions(imagePath, x, y, imgWidth, imgHeight, false, gofpdf.ImageOptions{ReadDpi: true}, 0, "")
+		y += imgHeight
+	}
+	x = pageWidth - imgWidth
+	y = imgHeight
+	for y < pageHeight-imgHeight {
+		pdf.ImageOptions(imagePath, x, y, imgWidth, imgHeight, false, gofpdf.ImageOptions{ReadDpi: true}, 0, "")
+		y += imgHeight
+	}
+	return nil
 }
 
 func listSearchWords(pdf *gofpdf.Fpdf, words []string, columns int) {

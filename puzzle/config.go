@@ -14,6 +14,7 @@ type PuzzleConfig struct {
 	Difficulty     int      `yaml:"difficulty"`
 	Words          []string `yaml:"words"`
 	OutputBasename string   `yaml:"output_basename"`
+	Background     string   `yaml:"background"`
 }
 
 func basenameWithoutExt(filePath string) string {
